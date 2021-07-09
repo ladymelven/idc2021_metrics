@@ -1,0 +1,184 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Here goes the data</title>
+</head>
+<body>
+<img src="imgs/go-away.jpg" alt="" style="display:block; width: 300px; margin: 40px auto">
+<h1 style="text-align: center">Intruder!!</h1>
+
+<script>
+  function quantile(arr, q) {
+    const sorted = arr.sort((a, b) => a - b);
+    const pos = (sorted.length - 1) * q;
+    const base = Math.floor(pos);
+    const rest = pos - base;
+
+    if (sorted[base + 1] !== undefined) {
+      return Math.floor(sorted[base] + rest * (sorted[base + 1] - sorted[base]));
+    } else {
+      return Math.floor(sorted[base]);
+    }
+  }
+
+  function prepareData(result) {
+    return result.data.map(item => {
+      item.date = item.timestamp.split('T')[0];
+
+      return item;
+    });
+  }
+
+  // показать сессию пользователя
+  function showSession(data, page, sessionId) {
+    const relevantData = data.filter(piece => piece.requestId === sessionId && piece.page === page);
+
+    const sessionData = {};
+    for (const piece of relevantData) {
+      sessionData[piece.name] = piece.value;
+    }
+    console.info(`Data on page ${page} for session ${sessionId}dom-`, sessionData);
+  }
+
+  // сравнить значения метрики по типам устройств
+  function compareMetricByPlatform(data, page, name) {
+    const desktopData = data.filter(piece =>
+      (piece.name === name && piece.page === page && piece.additional.platform === 'desktop'))
+      .map(piece => piece.value);
+    const touchData = data.filter(piece =>
+      (piece.name === name && piece.page === page && piece.additional.platform === 'touch'))
+      .map(piece => piece.value);
+
+    console.log(`Desktop vs touch devices ${name}:`);
+    console.table([
+      ['platform','p25', 'p50', 'p75', 'p95', 'hits'],
+      ['desktop',
+        quantile(desktopData, 0.25),
+        quantile(desktopData, 0.5),
+        quantile(desktopData, 0.75),
+        quantile(desktopData, 0.95),
+        desktopData.length],
+      ['touch',
+        quantile(touchData, 0.25),
+        quantile(touchData, 0.5),
+        quantile(touchData, 0.75),
+        quantile(touchData, 0.95),
+        touchData.length]
+    ]);
+  }
+
+  // сравнить значения метрики для рабочих дней и выходных
+  function compareMetricByWeekday(data, page, name) {
+    const weekendData = data.filter(piece => {
+      const weekday = new Date(piece.date).getDay();
+      return piece.name === name && piece.page === page && (weekday === 0 || weekday === 6);
+    }).map(piece => piece.value);
+    const workdayData = data.filter(piece => {
+      const weekday = new Date(piece.date).getDay();
+      return piece.name === name && piece.page === page && weekday && weekday < 6;
+    }).map(piece => piece.value);
+
+    console.log(`Weekend vs working days ${name}:`);
+    console.table([
+      ['days','p25', 'p50', 'p75', 'p95', 'hits'],
+      ['weekend',
+        quantile(weekendData, 0.25),
+        quantile(weekendData, 0.5),
+        quantile(weekendData, 0.75),
+        quantile(weekendData, 0.95),
+        weekendData.length],
+      ['working',
+        quantile(workdayData, 0.25),
+        quantile(workdayData, 0.5),
+        quantile(workdayData, 0.75),
+        quantile(workdayData, 0.95),
+        workdayData.length]
+    ]);
+  }
+
+  // показать значение метрики за период
+  function showMetricByPeriod(data, page, name, startDate, endDate) {
+    const sampleData = data
+      .filter(item =>
+        (item.page === page && item.name === name && item.date >= startDate && item.date <= endDate))
+      .map(item => item.value);
+
+    console.log(`${name} for the week starting at ${startDate}:\n` +
+      `p25=${quantile(sampleData, 0.25)} p50=${quantile(sampleData, 0.5)} ` +
+      `p75=${quantile(sampleData, 0.75)} p95=${quantile(sampleData, 0.95)} ` +
+      `hits=${sampleData.length}`);
+  }
+
+  // показать значение метрики за выбранную неделю
+  function showMetricByWeek(data, page, name, endDate) {
+    const startDateObj = new Date(endDate);
+    startDateObj.setDate(startDateObj.getDate() - 7);
+    const startDate = startDateObj.toISOString().split('T')[0];
+    const sampleData = data
+      .filter(item =>
+        (item.page === page && item.name === name && item.date >= startDate && item.date <= endDate))
+      .map(item => item.value);
+
+    console.log(`${name} from ${startDate} to ${endDate}:\n` +
+      `p25=${quantile(sampleData, 0.25)} p50=${quantile(sampleData, 0.5)} ` +
+      `p75=${quantile(sampleData, 0.75)} p95=${quantile(sampleData, 0.95)} ` +
+      `hits=${sampleData.length}`);
+  }
+
+  // рассчитать метрику за выбранный день
+  function calcMetricByDate(data, page, name, date) {
+    let sampleData = data
+      .filter(item => item.page === page && item.name === name && item.date === date)
+      .map(item => item.value);
+
+    console.log(`${date} ${name}:\n` +
+      `p25=${quantile(sampleData, 0.25)} p50=${quantile(sampleData, 0.5)} ` +
+      `p75=${quantile(sampleData, 0.75)} p95=${quantile(sampleData, 0.95)} ` +
+      `hits=${sampleData.length}`);
+  }
+
+  //посчитать, в каком проценте сессий присутствует метрика
+  function getCoverage(data, name) {
+    const sessionsTotal = new Set(data.map(piece => piece.requestId)).size;
+    const sessionsHaveMetric = new Set(
+      data.filter(piece => piece.name === name)
+        .map(piece => piece.requestId)
+    ).size;
+
+    console.log(
+      `${name} is present in ${Math.round((sessionsHaveMetric / sessionsTotal) * 100)}% sessions ` +
+      `(${sessionsHaveMetric} out of ${sessionsTotal})`
+    );
+  }
+
+  fetch('https://shri.yandex/hw/stat/data?counterId=F223421F-D776-41E2-92F1-58166CD32C63')
+    .then(res => res.json())
+    .then(result => {
+      let data = prepareData(result);
+      console.log(`Bienvenidos! Currently we have ${data.length} entries ` +
+        `from ${new Set(data.map(piece => piece.requestId)).size} sessions\n` +
+        `Below are some breakdowns.`);
+      const today = new Date().toISOString().split('T')[0];
+      calcMetricByDate(data, 'kitties', 'dom-interactive', today);
+      showMetricByWeek(data, 'kitties', 'dom-interactive', today);
+      showMetricByPeriod(data, 'kitties', 'dom-interactive', '2021-07-09', today);
+      compareMetricByPlatform(data, 'kitties', 'dom-interactive');
+
+      calcMetricByDate(data, 'kitties', 'click-handler', today);
+      showMetricByWeek(data, 'kitties', 'click-handler', today);
+      showMetricByPeriod(data, 'kitties', 'click-handler', '2021-07-09', today);
+      compareMetricByPlatform(data, 'kitties', 'click-handler');
+
+      calcMetricByDate(data, 'kitties', 'scroll-to-bottom', today);
+      showMetricByWeek(data, 'kitties', 'scroll-to-bottom', today);
+      showMetricByPeriod(data, 'kitties', 'scroll-to-bottom', '2021-07-09', today);
+      compareMetricByPlatform(data, 'kitties', 'scroll-to-bottom');
+      compareMetricByWeekday(data, 'kitties', 'scroll-to-bottom');
+      getCoverage(data, 'scroll-full');
+
+      showSession(data, 'kitties', '386901939889');
+    });
+</script>
+</body>
+</html>

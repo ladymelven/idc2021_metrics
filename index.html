@@ -1,0 +1,144 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Harry Potter and the performance metrics</title>
+  <script src="send.js"></script>
+
+  <style>
+      body {
+          padding: 20px 50px;
+          max-width: 1024px;
+          margin: 0 auto;
+      }
+
+      h1 {
+          font-size: 30px;
+          line-height: 1.3;
+          margin-bottom: 20px;
+      }
+
+      p {
+          font-size: 18px;
+          line-height: 22px;
+          margin-bottom: 15px;
+          width: 100%;
+      }
+
+      button {
+          display: block;
+          background-color: cornsilk;
+          border: 1px solid #cebcaa;
+          padding: 10px;
+          border-radius: 3px;
+          cursor: pointer;
+      }
+
+      button:hover {
+          background-color: #cebcaa;
+      }
+
+      img {
+          display: block;
+          width: 300px;
+          height: 300px;
+          object-fit: contain;
+          margin: 20px auto;
+      }
+
+      a {
+          cursor: default;
+      }
+
+      .hidden {
+          display: none;
+      }
+
+      .offset {
+          margin-top: 120vh;
+      }
+
+      .vertical {
+          height: calc(100vh - 150px);
+          width: auto;
+          max-width: 100%;
+      }
+
+      .big {
+          width: 100%;
+          height: auto;
+      }
+  </style>
+</head>
+<body>
+<h1>Привет!</h1>
+<p>Спасибо, что зашли. Меня зовут Аня, это мой маленький учебный проект.</p>
+<p>Обмениваю фотки котиков на ваши целевые действия на этой страничке. Поехали)</p>
+<button id="gimme-cat">Дайте котика!</button>
+<img src="imgs/shrimp.jpg" class="hidden" id="hidden-img" alt="Night">
+
+<p class="hidden" id="hidden-text" style="text-align: center">Там внизу есть еще, скролль 🢃</p>
+
+<img src="imgs/lynx.jpg" class="offset vertical" alt="Lynx">
+<p style="text-align: center">Дратути</p>
+
+<a href="/analytics.html">
+  <img src="imgs/cheesecake.jpg" class="offset big" alt="Cheesecake">
+</a>
+<p>Спасибо, что были с нами! Вы котик 💜</p>
+
+<script>
+  let counter = new Counter();
+
+  // hacky workarounds from stackoverflow to determine device type
+  const deviceAgent = navigator.userAgent.toLowerCase();
+  const isTouch = ('ontouchstart' in window)
+    || (navigator.maxTouchPoints > 0)
+    || (navigator.msMaxTouchPoints > 0)
+    || deviceAgent.match(/(iphone|ipod|ipad)/)
+    || deviceAgent.match(/(android)/)
+    || deviceAgent.match(/(iemobile)/)
+    || deviceAgent.match(/iphone/i)
+    || deviceAgent.match(/ipad/i)
+    || deviceAgent.match(/ipod/i)
+    || deviceAgent.match(/blackberry/i)
+    || deviceAgent.match(/bada/i);
+
+  counter.init('F223421F-D776-41E2-92F1-58166CD32C63', String(Math.random()).substr(2, 12), 'kitties');
+  counter.setAdditionalParams({
+    env: 'development',
+    platform: isTouch ? 'touch' : 'desktop'
+  });
+
+  document.onreadystatechange = () => {
+    if (document.readyState === 'interactive') {
+      counter.send('dom-interactive', performance.now());
+      performance.mark('interactive');
+    }
+  }
+
+  const pageHeight = document.documentElement.offsetHeight;
+  let full = false;
+
+  document.getElementById('gimme-cat').addEventListener('click', () => {
+    const start = Date.now();
+    document.getElementById('hidden-img').style.display = 'block';
+    setTimeout(() => {
+      document.getElementById('hidden-text').style.display = 'block';
+      const end = Date.now();
+      counter.send('click-handler', end - start);
+    }, 600);
+  });
+
+  window.addEventListener('scroll', () => {
+    const scrollPos = document.documentElement.scrollTop;
+    const scrolledBy = scrollPos / pageHeight;
+
+    if (scrolledBy >= .8 && !full) {
+      counter.send('scroll-to-bottom', performance.now() - performance.getEntriesByName('interactive')[0].startTime);
+      full = true;
+    }
+  });
+</script>
+</body>
+</html>
