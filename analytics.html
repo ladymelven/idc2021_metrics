@@ -38,7 +38,7 @@
     for (const piece of relevantData) {
       sessionData[piece.name] = piece.value;
     }
-    console.info(`Data on page ${page} for session ${sessionId}dom-`, sessionData);
+    console.info(`Data on page ${page} for session ${sessionId}`, sessionData);
   }
 
   // сравнить значения метрики по типам устройств
@@ -156,7 +156,7 @@
     .then(res => res.json())
     .then(result => {
       let data = prepareData(result);
-      console.log(`Bienvenidos! Currently we have ${data.length} entries ` +
+      console.log(`Bienvenidos! Currently we have ${data.length} items ` +
         `from ${new Set(data.map(piece => piece.requestId)).size} sessions\n` +
         `Below are some breakdowns.`);
       const today = new Date().toISOString().split('T')[0];
